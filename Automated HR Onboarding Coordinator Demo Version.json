@@ -1,0 +1,1083 @@
+{
+  "name": "Train Today - Onboarding Coordinator (Python)",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Train Today - New Employee Onboarding",
+        "formDescription": "HR intake form for the onboarding coordinator prototype. Required data is validated before any AI or automation step runs.",
+        "formFields": {
+          "values": [
+            {
+              "fieldName": "full_name",
+              "fieldLabel": "Full Name",
+              "requiredField": true
+            },
+            {
+              "fieldName": "personal_email",
+              "fieldLabel": "Personal Email",
+              "fieldType": "email",
+              "requiredField": true
+            },
+            {
+              "fieldName": "company_email",
+              "fieldLabel": "Company Email",
+              "fieldType": "email"
+            },
+            {
+              "fieldName": "department",
+              "fieldLabel": "Department",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Marketing"
+                  },
+                  {
+                    "option": "Sales"
+                  },
+                  {
+                    "option": "Engineering"
+                  },
+                  {
+                    "option": "HR"
+                  },
+                  {
+                    "option": "Finance"
+                  },
+                  {
+                    "option": "Operations"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldName": "role",
+              "fieldLabel": "Role",
+              "requiredField": true
+            },
+            {
+              "fieldName": "manager_name",
+              "fieldLabel": "Manager Name",
+              "requiredField": true
+            },
+            {
+              "fieldName": "manager_email",
+              "fieldLabel": "Manager Email",
+              "fieldType": "email",
+              "requiredField": true
+            },
+            {
+              "fieldName": "start_date",
+              "fieldLabel": "Start Date",
+              "fieldType": "date",
+              "requiredField": true
+            },
+            {
+              "fieldName": "hr_approver_email",
+              "fieldLabel": "HR Approver Email",
+              "fieldType": "email",
+              "requiredField": true
+            },
+            {
+              "fieldName": "notes",
+              "fieldLabel": "Additional Notes",
+              "fieldType": "textarea"
+            }
+          ]
+        },
+        "options": {
+          "buttonLabel": "Start onboarding"
+        }
+      },
+      "id": "ec86b6ca-6467-47b9-bd19-4845acbd2700",
+      "name": "New Employee Onboarding Request",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.4,
+      "position": [
+        -3312,
+        -976
+      ],
+      "webhookId": "EXAMPLE_WEBHOOK_ID_01"
+    },
+    {
+      "parameters": {
+        "language": "pythonNative",
+        "pythonCode": "raw = _items[0][\"json\"] if _items else {}\n\ndef clean(value):\n    if value is None:\n        return \"\"\n    return str(value).strip()\n\nemployee = {\n    \"full_name\": clean(raw.get(\"full_name\")),\n    \"personal_email\": clean(raw.get(\"personal_email\")),\n    \"company_email\": clean(raw.get(\"company_email\")),\n    \"department\": clean(raw.get(\"department\")),\n    \"role\": clean(raw.get(\"role\")),\n    \"manager_name\": clean(raw.get(\"manager_name\")),\n    \"manager_email\": clean(raw.get(\"manager_email\")),\n    \"start_date\": clean(raw.get(\"start_date\")),\n    \"hr_approver_email\": clean(raw.get(\"hr_approver_email\")),\n    \"notes\": clean(raw.get(\"notes\")),\n}\n\n# Create a readable prototype onboarding ID without importing any libraries.\nname_slug = employee[\"full_name\"].lower().replace(\" \", \"-\") or \"employee\"\ndate_part = employee[\"start_date\"] or \"no-date\"\nemployee[\"onboarding_id\"] = \"ONB-\" + date_part + \"-\" + name_slug\n\nrequired = [\n    \"full_name\",\n    \"personal_email\",\n    \"department\",\n    \"role\",\n    \"manager_name\",\n    \"manager_email\",\n    \"start_date\",\n    \"hr_approver_email\",\n]\n\nmissing_fields = [key for key in required if not employee.get(key)]\n\nemployee[\"validation_ok\"] = len(missing_fields) == 0\nemployee[\"missing_fields\"] = missing_fields\nemployee[\"onboarding_status\"] = \"READY_FOR_PLANNING\" if employee[\"validation_ok\"] else \"NEEDS_INFO\"\n\nreturn [{\"json\": employee}]"
+      },
+      "id": "81210ed5-0f29-4da1-a914-eb2f9e82c162",
+      "name": "Normalize + Validate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3056,
+        -976
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "72a9e40a-64b3-4d80-a830-b9660da6298e",
+              "leftValue": "={{ $json.validation_ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a80a5675-c17a-4297-9c8e-1b4cb38a70ba",
+      "name": "Required Info Complete?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2800,
+        -976
+      ]
+    },
+    {
+      "parameters": {
+        "language": "pythonNative",
+        "pythonCode": "data = _items[0][\"json\"] if _items else {}\nmissing_fields = data.get(\"missing_fields\", [])\n\nreturn [{\n    \"json\": {\n        \"status\": \"NEEDS_INFO\",\n        \"onboarding_id\": data.get(\"onboarding_id\", \"\"),\n        \"employee_name\": data.get(\"full_name\", \"\"),\n        \"missing_fields\": missing_fields,\n        \"message\": \"Onboarding stopped. Missing required fields: \" + \", \".join(missing_fields),\n    }\n}]"
+      },
+      "id": "0f659e8f-0b80-47de-bd17-ae3f222d7d57",
+      "name": "Stop - Missing Required Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2576,
+        -880
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "EXAMPLE_SPREADSHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Train_Today_Onboarding",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/EXAMPLE_SPREADSHEET_ID/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Checklist_Master",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "01fbc252-116f-43e4-8d11-1af8dbccd281",
+      "name": "Get Master Checklist",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -2576,
+        -1040
+      ]
+    },
+    {
+      "parameters": {
+        "language": "pythonNative",
+        "pythonCode": "if not _items:\n    raise Exception(\"No checklist rows were received from Google Sheets.\")\n\nfirst = _items[0][\"json\"]\n\nemployee_keys = [\n    \"onboarding_id\",\n    \"full_name\",\n    \"personal_email\",\n    \"company_email\",\n    \"department\",\n    \"role\",\n    \"manager_name\",\n    \"manager_email\",\n    \"start_date\",\n    \"hr_approver_email\",\n    \"notes\",\n]\n\nemployee = {key: first.get(key, \"\") for key in employee_keys}\ndepartment = str(employee.get(\"department\", \"\")).strip().lower()\n\ntask_keys = [\"task_id\", \"scope\", \"task\", \"owner\", \"oversight\", \"timing\", \"action_type\"]\napplicable = []\n\nfor item in _items:\n    row = item[\"json\"]\n    scope = str(row.get(\"scope\", \"\")).strip().lower()\n    if scope == \"general\" or scope == department:\n        task = {key: row.get(key, \"\") for key in task_keys}\n        applicable.append(task)\n\nif not applicable:\n    raise Exception(\"No applicable onboarding tasks found for department: \" + employee.get(\"department\", \"\"))\n\nemployee_text = \"\\n\".join([\n    \"- Full name: \" + employee.get(\"full_name\", \"\"),\n    \"- Personal email: \" + employee.get(\"personal_email\", \"\"),\n    \"- Company email: \" + employee.get(\"company_email\", \"\"),\n    \"- Department: \" + employee.get(\"department\", \"\"),\n    \"- Role: \" + employee.get(\"role\", \"\"),\n    \"- Manager: \" + employee.get(\"manager_name\", \"\"),\n    \"- Manager email: \" + employee.get(\"manager_email\", \"\"),\n    \"- Start date: \" + employee.get(\"start_date\", \"\"),\n    \"- Notes: \" + employee.get(\"notes\", \"\"),\n])\n\ntask_lines = []\nfor task in applicable:\n    task_lines.append(\n        \"- \" + str(task.get(\"task_id\", \"\"))\n        + \" | \" + str(task.get(\"task\", \"\"))\n        + \" | owner=\" + str(task.get(\"owner\", \"\"))\n        + \" | oversight=\" + str(task.get(\"oversight\", \"\"))\n        + \" | timing=\" + str(task.get(\"timing\", \"\"))\n        + \" | action_type=\" + str(task.get(\"action_type\", \"\"))\n    )\n\nprompt = (\n    \"Create the onboarding plan for this employee.\\n\\n\"\n    \"EMPLOYEE\\n\" + employee_text + \"\\n\\n\"\n    \"APPLICABLE CHECKLIST TASKS\\n\" + \"\\n\".join(task_lines) + \"\\n\\n\"\n    \"Create a concise plan, preserve the supplied task metadata, draft the welcome email and manager notification, \"\n    \"and identify anything HR should review.\"\n)\n\nreturn [{\n    \"json\": {\n        \"employee\": employee,\n        \"applicable_tasks\": applicable,\n        \"prompt\": prompt,\n    }\n}]"
+      },
+      "id": "1c015fb5-108a-4f46-85ba-41f029146b05",
+      "name": "Filter Tasks + Build Agent Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1968,
+        -1040
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are the Onboarding Coordinator for Train Today.\n\nGOAL\nCreate a reliable onboarding plan for a new employee using only the employee information and onboarding checklist supplied in the user prompt.\n\nRULES\n1. Use only tasks contained in the supplied onboarding checklist.\n2. General onboarding tasks apply to every employee.\n3. Department-specific tasks apply only to that employee's department.\n4. Preserve each supplied task_id, task, owner, oversight, timing and action_type unless a field is genuinely missing.\n5. Never invent employees, managers, applications, permissions, policies, links or access rights.\n6. Never approve or perform privileged account access yourself.\n7. Tasks involving account creation, permissions, passwords, security or sensitive systems must remain HITL or HUMAN if the checklist says so.\n8. Use these oversight values only: FULL_AUTOMATION, HITL, HOTL, HUMAN.\n9. Due dates must use YYYY-MM-DD. Use the employee start date and the checklist timing to choose a practical due date. If timing is unclear, use the start date and mention it in hr_attention_required.\n10. Keep communications professional, friendly and concise.\n11. Return only the structured response required by the connected output parser.\n\nOUTPUT CONTENT\n- Employee summary\n- Concise onboarding summary\n- Applicable task plan\n- Welcome email\n- Manager notification\n- HR attention items\n"
+        }
+      },
+      "id": "a631dfa0-c70a-4018-b573-d44a1ad7ab84",
+      "name": "Onboarding Planner Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.1,
+      "position": [
+        -1664,
+        -1136
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-5-mini"
+        },
+        "options": {}
+      },
+      "id": "8c8f2bcb-de8f-42f8-a545-1bdfd9b89dfa",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -1728,
+        -944
+      ]
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"employee\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"name\": {\n          \"type\": \"string\"\n        },\n        \"department\": {\n          \"type\": \"string\"\n        },\n        \"role\": {\n          \"type\": \"string\"\n        },\n        \"start_date\": {\n          \"type\": \"string\"\n        }\n      },\n      \"required\": [\n        \"name\",\n        \"department\",\n        \"role\",\n        \"start_date\"\n      ]\n    },\n    \"summary\": {\n      \"type\": \"string\"\n    },\n    \"tasks\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"task_id\": {\n            \"type\": \"string\"\n          },\n          \"task\": {\n            \"type\": \"string\"\n          },\n          \"owner\": {\n            \"type\": \"string\"\n          },\n          \"oversight\": {\n            \"type\": \"string\",\n            \"enum\": [\n              \"FULL_AUTOMATION\",\n              \"HITL\",\n              \"HOTL\",\n              \"HUMAN\"\n            ]\n          },\n          \"timing\": {\n            \"type\": \"string\"\n          },\n          \"due_date\": {\n            \"type\": \"string\"\n          },\n          \"action_type\": {\n            \"type\": \"string\"\n          }\n        },\n        \"required\": [\n          \"task_id\",\n          \"task\",\n          \"owner\",\n          \"oversight\",\n          \"timing\",\n          \"due_date\",\n          \"action_type\"\n        ]\n      }\n    },\n    \"welcome_email\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"subject\": {\n          \"type\": \"string\"\n        },\n        \"body\": {\n          \"type\": \"string\"\n        }\n      },\n      \"required\": [\n        \"subject\",\n        \"body\"\n      ]\n    },\n    \"manager_notification\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"subject\": {\n          \"type\": \"string\"\n        },\n        \"body\": {\n          \"type\": \"string\"\n        }\n      },\n      \"required\": [\n        \"subject\",\n        \"body\"\n      ]\n    },\n    \"hr_attention_required\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      }\n    }\n  },\n  \"required\": [\n    \"employee\",\n    \"summary\",\n    \"tasks\",\n    \"welcome_email\",\n    \"manager_notification\",\n    \"hr_attention_required\"\n  ]\n}"
+      },
+      "id": "adc4602a-880c-463a-90eb-6134a14575a8",
+      "name": "Structured Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -1360,
+        -960
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "sendTo": "={{ $json.hr_approver_email }}",
+        "subject": "=Approve onboarding plan - {{ $json.full_name }}",
+        "message": "=Employee: {{ $json.full_name }}\nDepartment: {{ $json.department }}\nRole: {{ $json.role }}\nStart date: {{ $json.start_date }}\n\nPlan summary:\n{{ $json.output.summary }}\n\nTasks:\n{{ $json.output.tasks.map(t => '- ' + t.task_id + ': ' + t.task + ' [' + t.oversight + ']').join('\\n') }}\n\nHR attention:\n{{ ($json.output.hr_attention_required || []).join('\\n') || 'None' }}\n\nApprove to allow the workflow to create tracking rows and send the approved communications.",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double",
+            "approveLabel": "Approve onboarding",
+            "disapproveLabel": "Reject"
+          }
+        },
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "0aded71d-38ea-4bc9-a97a-ac5679cc12b9",
+      "name": "HR Approval - Send and Wait",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -720,
+        -1136
+      ],
+      "webhookId": "EXAMPLE_WEBHOOK_ID_02"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d256d3c1-34cb-41c9-81b8-d864101cc11c",
+              "leftValue": "={{ $json.data.approved }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "23f1cddf-60bb-40be-a55f-e914935bcd70",
+      "name": "HR Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -528,
+        -1136
+      ]
+    },
+    {
+      "parameters": {
+        "language": "pythonNative",
+        "pythonCode": "data = _items[0][\"json\"] if _items else {}\n\nreturn [{\n    \"json\": {\n        \"status\": \"REJECTED_BY_HR\",\n        \"onboarding_id\": data.get(\"onboarding_id\", \"\"),\n        \"employee_name\": data.get(\"full_name\", \"\"),\n        \"message\": \"The onboarding plan was rejected by HR. No automated actions were executed.\",\n    }\n}]"
+      },
+      "id": "c1be24da-61ea-416f-946c-89ff0e02fae4",
+      "name": "Stop - HR Rejected Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        752,
+        -784
+      ]
+    },
+    {
+      "parameters": {
+        "language": "pythonNative",
+        "pythonCode": "data = _items[0][\"json\"] if _items else {}\nplan = data.get(\"plan\", {}) or {}\ntasks = plan.get(\"tasks\", []) or []\n\noutput = []\nfor task in tasks:\n    output.append({\n        \"json\": {\n            \"onboarding_id\": data.get(\"onboarding_id\", \"\"),\n            \"employee_name\": data.get(\"full_name\", \"\"),\n            \"department\": data.get(\"department\", \"\"),\n            \"task_id\": task.get(\"task_id\", \"\"),\n            \"task\": task.get(\"task\", \"\"),\n            \"owner\": task.get(\"owner\", \"\"),\n            \"due_date\": task.get(\"due_date\", \"\"),\n            \"oversight\": task.get(\"oversight\", \"\"),\n            \"status\": \"Pending\",\n        }\n    })\n\nreturn output"
+      },
+      "id": "45f33bd0-09b0-458a-9195-a9d5ffeb63e6",
+      "name": "Split Tasks for Tracking",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -32,
+        -1296
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "EXAMPLE_SPREADSHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Train_Today_Onboarding",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/EXAMPLE_SPREADSHEET_ID/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Onboarding_Tasks",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "onboarding_id": "={{ $json.onboarding_id }}",
+            "employee_name": "={{ $json.employee_name }}",
+            "department": "={{ $json.department }}",
+            "task_id": "={{ $json.task_id }}",
+            "task": "={{ $json.task }}",
+            "owner": "={{ $json.owner }}",
+            "due_date": "={{ $json.due_date }}",
+            "oversight": "={{ $json.oversight }}",
+            "status": "={{ $json.status }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "onboarding_id",
+              "displayName": "onboarding_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "employee_name",
+              "displayName": "employee_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "department",
+              "displayName": "department",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "task_id",
+              "displayName": "task_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "task",
+              "displayName": "task",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "owner",
+              "displayName": "owner",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "due_date",
+              "displayName": "due_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "oversight",
+              "displayName": "oversight",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "c7cd4063-e460-4779-8630-858c5aeaa331",
+      "name": "Append Onboarding Tasks",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        400,
+        -1312
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.personal_email }}",
+        "subject": "={{ $json.plan.welcome_email.subject }}",
+        "message": "={{ $json.plan.welcome_email.body }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "2a16a180-e296-47bb-8497-43380f9c2e03",
+      "name": "Send Employee Welcome Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        160,
+        -1200
+      ],
+      "webhookId": "EXAMPLE_WEBHOOK_ID_03"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.manager_email }}",
+        "subject": "={{ $json.plan.manager_notification.subject }}",
+        "message": "={{ $json.plan.manager_notification.body }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "18ed1166-31ac-4621-ab76-ce96c1151245",
+      "name": "Notify Manager",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        384,
+        -1136
+      ],
+      "webhookId": "EXAMPLE_WEBHOOK_ID_04"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "aec-1",
+              "name": "onboarding_id",
+              "value": "={{ $('Normalize + Validate').first().json.onboarding_id }}",
+              "type": "string"
+            },
+            {
+              "id": "aec-2",
+              "name": "full_name",
+              "value": "={{ $('Normalize + Validate').first().json.full_name }}",
+              "type": "string"
+            },
+            {
+              "id": "aec-3",
+              "name": "personal_email",
+              "value": "={{ $('Normalize + Validate').first().json.personal_email }}",
+              "type": "string"
+            },
+            {
+              "id": "aec-4",
+              "name": "company_email",
+              "value": "={{ $('Normalize + Validate').first().json.company_email }}",
+              "type": "string"
+            },
+            {
+              "id": "aec-5",
+              "name": "department",
+              "value": "={{ $('Normalize + Validate').first().json.department }}",
+              "type": "string"
+            },
+            {
+              "id": "aec-6",
+              "name": "role",
+              "value": "={{ $('Normalize + Validate').first().json.role }}",
+              "type": "string"
+            },
+            {
+              "id": "aec-7",
+              "name": "manager_name",
+              "value": "={{ $('Normalize + Validate').first().json.manager_name }}",
+              "type": "string"
+            },
+            {
+              "id": "aec-8",
+              "name": "manager_email",
+              "value": "={{ $('Normalize + Validate').first().json.manager_email }}",
+              "type": "string"
+            },
+            {
+              "id": "aec-9",
+              "name": "start_date",
+              "value": "={{ $('Normalize + Validate').first().json.start_date }}",
+              "type": "string"
+            },
+            {
+              "id": "aec-10",
+              "name": "hr_approver_email",
+              "value": "={{ $('Normalize + Validate').first().json.hr_approver_email }}",
+              "type": "string"
+            },
+            {
+              "id": "aec-11",
+              "name": "notes",
+              "value": "={{ $('Normalize + Validate').first().json.notes }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "81db6121-4b23-42c1-9970-35eea9e1d5e6",
+      "name": "Attach Employee Context",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2288,
+        -1040
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "pac-1",
+              "name": "onboarding_id",
+              "value": "={{ $('Normalize + Validate').first().json.onboarding_id }}",
+              "type": "string"
+            },
+            {
+              "id": "pac-2",
+              "name": "full_name",
+              "value": "={{ $('Normalize + Validate').first().json.full_name }}",
+              "type": "string"
+            },
+            {
+              "id": "pac-3",
+              "name": "personal_email",
+              "value": "={{ $('Normalize + Validate').first().json.personal_email }}",
+              "type": "string"
+            },
+            {
+              "id": "pac-4",
+              "name": "department",
+              "value": "={{ $('Normalize + Validate').first().json.department }}",
+              "type": "string"
+            },
+            {
+              "id": "pac-5",
+              "name": "role",
+              "value": "={{ $('Normalize + Validate').first().json.role }}",
+              "type": "string"
+            },
+            {
+              "id": "pac-6",
+              "name": "manager_email",
+              "value": "={{ $('Normalize + Validate').first().json.manager_email }}",
+              "type": "string"
+            },
+            {
+              "id": "pac-7",
+              "name": "start_date",
+              "value": "={{ $('Normalize + Validate').first().json.start_date }}",
+              "type": "string"
+            },
+            {
+              "id": "pac-8",
+              "name": "hr_approver_email",
+              "value": "={{ $('Normalize + Validate').first().json.hr_approver_email }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "b6420376-0f22-4ab2-9d8c-f3a8f65cc6ff",
+      "name": "Prepare Approval Context",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -976,
+        -1136
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "aac-1",
+              "name": "onboarding_id",
+              "value": "={{ $('Normalize + Validate').first().json.onboarding_id }}",
+              "type": "string"
+            },
+            {
+              "id": "aac-2",
+              "name": "full_name",
+              "value": "={{ $('Normalize + Validate').first().json.full_name }}",
+              "type": "string"
+            },
+            {
+              "id": "aac-3",
+              "name": "personal_email",
+              "value": "={{ $('Normalize + Validate').first().json.personal_email }}",
+              "type": "string"
+            },
+            {
+              "id": "aac-4",
+              "name": "department",
+              "value": "={{ $('Normalize + Validate').first().json.department }}",
+              "type": "string"
+            },
+            {
+              "id": "aac-5",
+              "name": "manager_email",
+              "value": "={{ $('Normalize + Validate').first().json.manager_email }}",
+              "type": "string"
+            },
+            {
+              "id": "aac-6",
+              "name": "plan",
+              "value": "={{ $('Onboarding Planner Agent').first().json.output }}",
+              "type": "object"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "cf0dc51d-4c5c-4b43-b600-725d5c48a2ff",
+      "name": "Attach Approved Context",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -288,
+        -1136
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "arc-1",
+              "name": "onboarding_id",
+              "value": "={{ $('Normalize + Validate').first().json.onboarding_id }}",
+              "type": "string"
+            },
+            {
+              "id": "arc-2",
+              "name": "full_name",
+              "value": "={{ $('Normalize + Validate').first().json.full_name }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "c2a520ad-25dd-46ff-86c4-6293c855636e",
+      "name": "Attach Rejected Context",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        512,
+        -800
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Train Today – AI-Supported Onboarding Coordinator\n\n## Purpose\nThis prototype automates a manageable part of HR onboarding while keeping human control where decisions or sensitive actions matter. It reduces manual coordination across forms, checklists, email and task tracking.\n\n## Assignment requirements addressed\n- Analyze which onboarding activities are suitable for automation.\n- Combine workflow automation with an AI Agent.\n- Apply appropriate human oversight: **FULL_AUTOMATION, HITL, HOTL, HUMAN**.\n- Use external systems as sources of truth instead of storing changing business data inside the agent prompt.\n- Make the workflow understandable, maintainable and extensible.\n\n## Architecture decision\nA **single Onboarding Planner Agent** is sufficient for this prototype because one coherent reasoning task is needed: turn validated employee data + the applicable checklist into a structured onboarding plan and two communications. Deterministic tasks such as validation, filtering, routing, approval and data persistence remain normal n8n workflow logic. This keeps the agent focused and reduces unnecessary complexity.\n\n## Human oversight\nThe agent may propose a plan, but **HR must approve it before downstream actions run**. If HR rejects the plan, the workflow stops. Sensitive or privileged tasks remain HITL/HUMAN according to the checklist metadata.\n\n## Prototype scope / assumptions\nThis workflow does **not** automate the entire onboarding process. It coordinates intake, planning, approval, communication and tracking. The Google Sheet acts as the external onboarding checklist and task store. Future versions could add account provisioning, calendar events, IT/service-desk integrations, reminders, status monitoring or modular sub-workflows/MCP tools.",
+        "height": 892,
+        "width": 1488,
+        "color": "#FFFFFF"
+      },
+      "id": "e01da3a2-2b1c-4f33-a29f-aac36700db5f",
+      "name": "DOC - Project Overview & Requirements",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -3344,
+        -1920
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# 1. Employee Intake & Validation\n\n**New Employee Onboarding Request** collects the employee, manager and HR approver information through an n8n form.\n\n**Normalize + Validate** cleans the submitted values, creates a readable onboarding ID and checks the required fields.\n\n**Required Info Complete?** is the first safety gate:\n- **TRUE:** continue to onboarding planning.\n- **FALSE:** stop immediately and return the missing fields.\n\n### Design reason\nAI should not be asked to compensate for missing core data. Validation happens before any AI call, making the workflow cheaper, more predictable and easier to troubleshoot.",
+        "height": 560,
+        "width": 700,
+        "color": 7
+      },
+      "id": "605bcc25-6ed5-4a90-a158-afb7aed6232a",
+      "name": "DOC - 1 Intake & Validation",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -3344,
+        -1312
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# 2. Retrieve & Filter the Onboarding Checklist\n\n**Get Master Checklist** reads the current checklist from Google Sheets. The checklist remains outside the AI Agent so HR can maintain tasks, owners, timing and oversight without changing the system prompt.\n\n**Attach Employee Context** restores the validated employee data alongside the checklist rows.\n\n**Filter Tasks + Build Agent Prompt** keeps only:\n- tasks with scope = **general**, and\n- tasks matching the employee's **department**.\n\nIt then builds a compact prompt containing employee context and only the applicable checklist tasks.\n\n### Design reason\nBusiness rules and changing checklist content stay in an external source of truth; the Agent receives only relevant information.",
+        "height": 450,
+        "width": 760,
+        "color": 7
+      },
+      "id": "545ae03e-8f91-4573-ba0a-e99b32901d60",
+      "name": "DOC - 2 Checklist as Source of Truth",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -2608,
+        -1376
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# 3. AI Planning Layer\n\nThe **Onboarding Planner Agent** creates the individualized onboarding plan. It is connected to one chat model and a **Structured Output Parser**.\n\nThe Agent is instructed to:\n- use only checklist tasks supplied by the workflow,\n- preserve task metadata such as owner, oversight, timing and action type,\n- never invent permissions, policies, systems or access rights,\n- keep sensitive access/security work under human control,\n- calculate practical due dates from checklist timing + start date,\n- draft a welcome email and manager notification,\n- flag unclear or risky items for HR attention.\n\nThe output parser forces a predictable JSON structure containing:\n1. employee summary,\n2. onboarding summary,\n3. task plan,\n4. welcome email,\n5. manager notification,\n6. HR attention items.\n\n### Why an Agent here?\nThis step requires interpretation and context-sensitive planning rather than simple field mapping. The surrounding workflow remains deterministic, while AI is used only where flexible reasoning adds value.",
+        "height": 780,
+        "width": 720,
+        "color": 7
+      },
+      "id": "87eb5ccc-c527-4c29-a7c4-2b8ade512ad7",
+      "name": "DOC - 3 AI Planning Layer",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1808,
+        -1680
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# 4. HR Approval Gate (HITL)\n\n**Prepare Approval Context** combines the validated employee data with the structured AI output.\n\n**HR Approval – Send and Wait** emails the proposed plan to the HR approver and pauses the workflow until a human chooses **Approve onboarding** or **Reject**.\n\n**HR Approved?** routes the decision:\n- **Approved:** downstream automation may continue.\n- **Rejected:** the workflow follows the rejection branch and performs no automated onboarding actions.\n\n### Why HITL?\nThe AI can prepare and recommend, but HR remains accountable for the actual onboarding plan. This is especially important because the workflow may send communications and create operational tracking records.\n\nThis gate demonstrates controlled autonomy: AI supports the process, while a human authorizes execution.",
+        "height": 648,
+        "width": 620,
+        "color": 7
+      },
+      "id": "e3a0e04f-193a-4f04-ba46-820c7856ba7c",
+      "name": "DOC - 4 Human-in-the-Loop Approval",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1040,
+        -1584
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# 5. Execute the Approved Plan\n\nAfter approval, **Attach Approved Context** restores the employee data and approved Agent plan, then the workflow branches into three actions:\n\n### A. Task tracking\n**Split Tasks for Tracking** converts the Agent's task array into individual n8n items. **Append Onboarding Tasks** writes each task to the `Onboarding_Tasks` Google Sheet with owner, due date, oversight and initial status `Pending`.\n\n### B. Employee communication\n**Send Employee Welcome Email** sends the Agent-drafted welcome message to the employee's personal email.\n\n### C. Manager communication\n**Notify Manager** sends the Agent-drafted notification to the responsible manager.\n\n### Design reason\nThe AI creates structured content, but standard n8n nodes perform the actual integrations. This separation makes execution transparent and easier to maintain or replace later.",
+        "height": 670,
+        "width": 900,
+        "color": 7
+      },
+      "id": "b0d3d90b-2032-4c83-a941-8a34f34bca10",
+      "name": "DOC - 5 Approved Actions",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -336,
+        -1680
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# 6. Safe Stop Paths, Limitations & Extension Ideas\n\nTwo explicit stop paths protect the workflow:\n- **Missing required data:** onboarding stops before checklist retrieval or AI planning.\n- **HR rejection:** no task rows are created and no employee/manager emails are sent.\n\n## Current prototype limitations\n- The workflow coordinates onboarding but does not provision accounts, permissions, hardware or sensitive systems.\n- Due dates are proposed by the Agent from checklist timing; ambiguous timing is flagged for HR review.\n- Google Sheets is suitable for a prototype, but a production system may require an HRIS, ticketing system or database.\n- There is no automated reminder/escalation loop or completion monitoring yet.\n\n## Possible next steps\nAdd modular sub-workflows for IT, facilities and payroll; calendar scheduling; reminder/escalation logic; status dashboards; HRIS/service-desk integrations; and MCP tools where reusable external capabilities provide clear value.",
+        "height": 440,
+        "width": 1400,
+        "color": 7
+      },
+      "id": "bb96a0e2-6058-4c36-a9f3-8fdd9d2addc6",
+      "name": "DOC - 6 Safe Stop Paths & Limitations",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -480,
+        -944
+      ]
+    }
+  ],
+  "pinData": {
+    "New Employee Onboarding Request": [
+      {
+        "json": {
+          "full_name": "John Example",
+          "personal_email": "employee@example.com",
+          "company_email": "john.example@example-company.com",
+          "department": "Sales",
+          "role": "Sales Representative",
+          "manager_name": "Jane Manager",
+          "manager_email": "manager@example.com",
+          "start_date": "2026-10-04",
+          "hr_approver_email": "hr.approver@example.com",
+          "notes": "",
+          "submittedAt": "2026-10-05T10:35:05.402+02:00",
+          "formMode": "test"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "New Employee Onboarding Request": {
+      "main": [
+        [
+          {
+            "node": "Normalize + Validate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize + Validate": {
+      "main": [
+        [
+          {
+            "node": "Required Info Complete?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Required Info Complete?": {
+      "main": [
+        [
+          {
+            "node": "Get Master Checklist",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stop - Missing Required Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Master Checklist": {
+      "main": [
+        [
+          {
+            "node": "Attach Employee Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Tasks + Build Agent Prompt": {
+      "main": [
+        [
+          {
+            "node": "Onboarding Planner Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Onboarding Planner Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Onboarding Planner Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Onboarding Planner Agent": {
+      "main": [
+        [
+          {
+            "node": "Prepare Approval Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HR Approval - Send and Wait": {
+      "main": [
+        [
+          {
+            "node": "HR Approved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HR Approved?": {
+      "main": [
+        [
+          {
+            "node": "Attach Approved Context",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Attach Rejected Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Tasks for Tracking": {
+      "main": [
+        [
+          {
+            "node": "Append Onboarding Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach Employee Context": {
+      "main": [
+        [
+          {
+            "node": "Filter Tasks + Build Agent Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Approval Context": {
+      "main": [
+        [
+          {
+            "node": "HR Approval - Send and Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach Approved Context": {
+      "main": [
+        [
+          {
+            "node": "Split Tasks for Tracking",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Employee Welcome Email",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Notify Manager",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach Rejected Context": {
+      "main": [
+        [
+          {
+            "node": "Stop - HR Rejected Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "EXAMPLE_VERSION_ID",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "EXAMPLE_INSTANCE_ID"
+  },
+  "nodeGroups": [],
+  "id": "EXAMPLE_WORKFLOW_ID",
+  "tags": []
+}
